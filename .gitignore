@@ -1,0 +1,4 @@
+node_modules/
+pdf/node_modules/
+pdf/package-lock.json
+pdf/jarvis-start.html

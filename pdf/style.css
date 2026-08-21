@@ -1,0 +1,162 @@
+@page { size: A4; margin: 18mm 16mm 16mm; }
+
+:root {
+  --ink: #14161a;
+  --muted: #5b6270;
+  --line: #e2e5ea;
+  --accent: #1f6feb;
+  --accent-soft: #eef4ff;
+  --code-bg: #f6f7f9;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 10.5pt/1.62 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ------------------------------------------------------------- обложка --- */
+.cover {
+  height: 253mm;
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  padding-top: 22mm;
+}
+.cover-mark {
+  font-size: 9pt;
+  letter-spacing: .28em;
+  color: var(--accent);
+  font-weight: 700;
+}
+.cover h1 {
+  font-size: 40pt;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  margin: 6mm 0 0;
+  border: 0;
+  padding: 0;
+}
+.cover-lead {
+  font-size: 12pt;
+  color: var(--muted);
+  max-width: 118mm;
+  margin: 6mm 0 0;
+}
+.cover-facts {
+  list-style: none;
+  padding: 0;
+  margin: 14mm 0 0;
+  max-width: 120mm;
+}
+.cover-facts li {
+  padding: 3.2mm 0 3.2mm 7mm;
+  border-top: 1px solid var(--line);
+  position: relative;
+  font-size: 10.5pt;
+}
+.cover-facts li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 5.6mm;
+  width: 3.4mm; height: 3.4mm;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cover-foot {
+  margin-top: auto;
+  padding-top: 6mm;
+  border-top: 2px solid var(--ink);
+  font-size: 9pt;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+/* -------------------------------------------------------------- текст --- */
+main { max-width: 100%; }
+
+h2 {
+  font-size: 17pt;
+  letter-spacing: -.01em;
+  margin: 12mm 0 4mm;
+  padding-bottom: 2.5mm;
+  border-bottom: 2px solid var(--ink);
+  page-break-after: avoid;
+  page-break-before: auto;
+}
+main > h2:first-child { margin-top: 0; }
+
+h3 {
+  font-size: 12pt;
+  margin: 7mm 0 2.5mm;
+  page-break-after: avoid;
+}
+
+p { margin: 0 0 3mm; }
+strong { font-weight: 650; }
+
+a { color: var(--accent); text-decoration: none; word-break: break-all; }
+
+ul, ol { margin: 0 0 3.5mm; padding-left: 5.5mm; }
+li { margin-bottom: 1.4mm; }
+
+blockquote {
+  margin: 4mm 0;
+  padding: 3.5mm 5mm;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 2mm 2mm 0;
+  page-break-inside: avoid;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+code {
+  font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 9pt;
+  background: var(--code-bg);
+  padding: .4mm 1.2mm;
+  border-radius: 1mm;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 2mm;
+  padding: 3.5mm 4mm;
+  margin: 3mm 0 4mm;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+pre code { background: none; padding: 0; font-size: 8.8pt; line-height: 1.55; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 3mm 0 5mm;
+  font-size: 10pt;
+  page-break-inside: avoid;
+}
+th {
+  text-align: left;
+  border-bottom: 1.5px solid var(--ink);
+  padding: 2mm 3mm 2mm 0;
+  font-weight: 650;
+}
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 2mm 3mm 2mm 0;
+  vertical-align: top;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 7mm 0;
+}
+
+h2 + p, h3 + p { orphans: 3; widows: 3; }
