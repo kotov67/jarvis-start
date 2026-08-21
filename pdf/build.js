@@ -10,9 +10,8 @@ import { marked } from "marked";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
-const EMAIL = process.env.JARVIS_EMAIL || "почта будет добавлена";
-
-let md = readFileSync(join(ROOT, "SETUP.md"), "utf8").replaceAll("{{EMAIL}}", EMAIL);
+const md0 = readFileSync(join(ROOT, "SETUP.md"), "utf8");
+let md = md0;
 
 // Заголовок первого уровня выносим на обложку, из документа убираем.
 const title = md.match(/^#\s+(.+)$/m)?.[1] ?? "Свой Джарвис за час";
@@ -41,7 +40,7 @@ const html = `<!doctype html>
   </ul>
   <div class="cover-foot">
     <div>Инструкция и скрипты: github.com/kotov67/jarvis-start</div>
-    <div>Настройка под ключ: Телеграм @AndreyKotov &nbsp;·&nbsp; ${EMAIL}</div>
+    <div>Настройка под ключ: Телеграм @AndreyKotov</div>
   </div>
 </section>
 
