@@ -198,8 +198,25 @@ step "Закрываю лишние двери (файрвол)"
 ufw allow 22/tcp  >/dev/null 2>&1 || true
 ufw allow 80/tcp  >/dev/null 2>&1 || true
 ufw allow 443/tcp >/dev/null 2>&1 || true
+
+# Если на сервере уже стоит личный VPN (AmneziaVPN и подобные в докере),
+# его порты нужно оставить открытыми, иначе связь с сервером оборвётся.
+VPN_PORTS=""
+if command -v docker >/dev/null 2>&1; then
+  VPN_PORTS="$(docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null \
+    | grep -iE 'amnezia|wg-easy|wireguard|xray|openvpn' \
+    | grep -oE '0\.0\.0\.0:[0-9]+->[0-9]+/(udp|tcp)' \
+    | sed -E 's#0\.0\.0\.0:([0-9]+)->[0-9]+/(udp|tcp)#\1/\2#' | sort -u || true)"
+fi
+# Дополнительные порты можно задать вручную: JARVIS_EXTRA_PORTS="1234/udp 5678/tcp"
+for p in ${VPN_PORTS} ${JARVIS_EXTRA_PORTS:-}; do
+  ufw allow "$p" >/dev/null 2>&1 && ok "Оставил открытым порт вашего VPN: ${p}"
+done
+
 ufw --force enable >/dev/null 2>&1 || true
 ok "Открыты только вход на сервер и сайт панели. Сам помощник наружу не смотрит."
+[ -z "${VPN_PORTS}" ] && command -v docker >/dev/null 2>&1 && \
+  warn "Личный VPN на сервере не найден. Если он у вас есть и связь оборвётся, откройте его порт: ufw allow НОМЕР/udp"
 
 # ------------------------------------------------------ файлы второй фазы ---
 step "Кладу файлы второй фазы"
