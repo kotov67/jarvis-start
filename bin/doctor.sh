@@ -19,7 +19,7 @@ head_ "Проверка помощника"
 # 1. память и диск
 MEM_FREE=$(( $(grep MemAvailable /proc/meminfo | awk '{print $2}') / 1024 ))
 if [ "$MEM_FREE" -lt 200 ]; then
-  bad "Свободной памяти всего ${MEM_FREE} МБ" "Перезапустите помощника: openclaw gateway restart. Если повторяется, нужен тариф побольше."
+  bad "Свободной памяти всего ${MEM_FREE} МБ" "Перезапустите помощника: openclaw gateway restart. Если повторяется, нужен тариф побольше: https://ishosting.io/affiliate/NzU4MiM4"
 else
   good "Память в порядке (свободно ${MEM_FREE} МБ)"
 fi

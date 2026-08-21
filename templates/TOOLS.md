@@ -6,6 +6,7 @@
 
 ## Сервер
 
+- Хостинг: is*hosting, личный кабинет и смена тарифа здесь: https://ishosting.io/affiliate/NzU4MiM4
 - Помощник живёт на своём сервере, пользователь `{{AGENT_NAME}}` (в системе: jarvis)
 - Панель: https://{{DOMAIN}}, пароль в файле `~/.jarvis-panel-password`
 - Проверка здоровья: `~/jarvis-start/bin/doctor.sh`
