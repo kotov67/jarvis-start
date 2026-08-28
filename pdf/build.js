@@ -67,7 +67,7 @@ const webHtml = html
 /* Поля для чтения с экрана. В печатной версии их задаёт @page, но браузер её
    игнорирует, и текст прилипает к краю окна. */
 @media screen {
-  body { max-width: 900px; margin: 0 auto; padding: 28px 32px 96px; }
+  body { max-width: 1200px; margin: 0 auto; padding: 28px 40px 96px; }
   main { padding: 0 }
   .cover { padding: 24px 0 8px }
   img, table, pre { max-width: 100% }
