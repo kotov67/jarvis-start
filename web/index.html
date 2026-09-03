@@ -282,8 +282,8 @@ h2 + p, h3 + p { orphans: 3; widows: 3; }
 Claude отвечает отказом по географии, а серверы Телеграма не отвечают вовсе —
 ни по обычному адресу, ни по новому протоколу. Обойти это внутри помощника
 нельзя: он не сможет ни думать, ни писать вам. Если сервер уже куплен в России,
-смотрите разбор в разделе «Если что-то пошло не так» — там сказано, как это распознать и что
-делать.</p>
+смотрите разбор в разделе «Если что-то пошло не так»: там сказано, как это
+распознать и что делать.</p>
 </blockquote>
 <hr>
 <h2>3. Шаг первый: сервер</h2>
@@ -802,9 +802,11 @@ curl -s -o /dev/null -w &quot;Телеграм: %{http_code}\n&quot; --max-time 
 чинить.</p>
 <p>Обновляйтесь руками, когда у вас есть свободные полчаса:</p>
 <p><strong>1. Сделайте копию.</strong> Это тридцать секунд, а спасает всё:</p>
-<pre><code class="language-bash">sudo -iu jarvis tar -czf ~/jarvis-backup-$(date +%F).tar.gz \
-  --exclude=node_modules -C /home/jarvis .openclaw
+<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;tar -czf &quot;$HOME/jarvis-backup-$(date +%F).tar.gz&quot; \
+  --exclude=node_modules -C &quot;$HOME&quot; .openclaw &amp;&amp; ls -lh &quot;$HOME&quot;/jarvis-backup-*.tar.gz&#39;
 </code></pre>
+<p>Последняя строка покажет получившийся файл. Если размер нулевой или файла нет —
+дальше не идите, разберитесь с копией.</p>
 <p><strong>2. Поставьте нужную версию.</strong> Именно с номером, а не «последнюю»:</p>
 <pre><code class="language-bash">sudo -iu jarvis npm install -g openclaw@2026.8.2
 </code></pre>
@@ -822,9 +824,11 @@ sudo -iu jarvis openclaw status
 Проверьте заодно, что расписания на месте: <code>sudo -iu jarvis openclaw cron list</code>.</p>
 <p><strong>Если после обновления помощник не поднялся</strong>, верните копию из первого шага и
 перезапустите:</p>
-<pre><code class="language-bash">sudo -iu jarvis tar -xzf ~/jarvis-backup-ДАТА.tar.gz -C /home/jarvis
+<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;tar -xzf &quot;$HOME&quot;/jarvis-backup-ДАТА.tar.gz -C &quot;$HOME&quot;&#39;
 sudo -iu jarvis openclaw gateway restart
 </code></pre>
+<p>Вместо <code>ДАТА</code> подставьте дату из имени файла, его видно командой
+<code>sudo -iu jarvis ls</code>.</p>
 <p><strong>Ещё одна мелочь после каждого обновления.</strong> Если панель начнёт жаловаться, что
 отказывается запускать код из папки, доступной на запись, поправьте права:</p>
 <pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;chmod -R go-w $(npm root -g)/openclaw&#39;
