@@ -239,7 +239,7 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
   if [ "$LAYER_UPDATE" -eq 0 ] && [ "$PLATFORM_UPDATE" -eq 0 ]; then
     ok "Обновлять нечего, всё свежее"
   else
-    ok "Есть что обновить. Запустите без --check: sudo -iu jarvis ~/jarvis-start/bin/update.sh"
+    ok "Есть что обновить. Запустите без --check: ~/jarvis-start/bin/update.sh (или напишите помощнику «обнови себя»)"
   fi
   exit 0
 fi
