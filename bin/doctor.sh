@@ -101,6 +101,15 @@ else
   printf '%s  ·%s Пароль панели не найден. Задать новый: openclaw config set gateway.auth.password "новый-пароль"\n' "$C_WARN" "$C_OFF"
 fi
 
+# 8. проверка обновлений
+if [ -x "${HERE}/bin/update-check-cron.sh" ]; then
+  if "${HERE}/bin/update-check-cron.sh" status >/dev/null 2>&1; then
+    good "Ежедневная проверка обновлений включена"
+  else
+    bad "Ежедневная проверка обновлений выключена" "Включить: ~/jarvis-start/bin/update-check-cron.sh install"
+  fi
+fi
+
 head_ "Итог"
 if [ "$PROBLEMS" -eq 0 ]; then
   printf '%s  Всё работает.%s\n\n' "$C_OK" "$C_OFF"

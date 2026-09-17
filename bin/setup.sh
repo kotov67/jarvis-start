@@ -168,6 +168,14 @@ else
       openclaw pairing approve telegram КОД_ИЗ_СПИСКА"
 fi
 
+# ------------------------------------------------ проверка обновлений ---
+step "Включаю ежедневную проверку обновлений"
+if "${HERE}/bin/update-check-cron.sh" install >/dev/null 2>&1; then
+  ok "Раз в день в 11:00 помощник проверит, не вышло ли обновление, и предложит обновиться"
+else
+  warn "Проверку обновлений включить не удалось. Позже: ~/jarvis-start/bin/update-check-cron.sh install"
+fi
+
 # ------------------------------------------------------------------ финал ---
 printf '%s\n' "$PANEL_PASS" > "${HOME}/.jarvis-panel-password"
 chmod 600 "${HOME}/.jarvis-panel-password"
