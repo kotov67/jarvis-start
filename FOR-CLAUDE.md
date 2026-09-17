@@ -5,7 +5,7 @@
 
 ## Что должно получиться
 
-Работающий OpenClaw-агент на VPS: мозг через `claude-cli` по подписке Claude,
+Работающий OpenClaw-агент на VPS: мозг через Claude CLI (`--auth-choice anthropic-cli`) по подписке Claude,
 канал Телеграм, Control UI за HTTPS, память в рабочей папке, служба поднимается
 после перезагрузки.
 
@@ -80,7 +80,7 @@ sudo -iu jarvis /home/jarvis/jarvis-start/bin/setup.sh
 
 ```bash
 openclaw onboard --non-interactive --accept-risk \
-  --mode local --auth-choice claude-cli \
+  --mode local --auth-choice anthropic-cli \
   --gateway-bind loopback --gateway-auth password --gateway-password "$PASS" \
   --install-daemon --daemon-runtime node \
   --skip-channels --skip-search --skip-hooks --skip-ui --skip-skills
@@ -122,3 +122,19 @@ sudo -iu jarvis /home/jarvis/jarvis-start/bin/doctor.sh
 - не записывать пароль панели в общедоступные файлы и в репозиторий
 - не включать `tools.exec` в полный доступ без разговора с человеком
 - не оставлять `dmPolicy` в значении, при котором боту может писать кто угодно
+
+## Обновление уже установленного помощника
+
+Не переустанавливай: второй прогон `setup.sh` перезапишет личность и память шаблонами.
+Обновление делается одной командой из SSH-сессии (не из переписки с самим помощником,
+он перезапустится и оборвёт выполнение):
+
+```bash
+sudo -iu jarvis ~/jarvis-start/bin/update.sh
+```
+
+Если файла нет (установка до 17.09.2026), скачай его из `main` и запусти, дальше он
+обновляется сам. Скрипт берёт последний GitHub Release, делает копию в `~/jarvis-backups`,
+обновляет OpenClaw и Claude Code, дописывает блок правил в `AGENTS.md` между метками
+`jarvis-start:managed`, выполняет миграции из `migrations/` и откатывается при сбое.
+Журнал: `~/jarvis-start/update.log`.

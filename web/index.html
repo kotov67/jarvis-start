@@ -828,41 +828,42 @@ curl -s -o /dev/null -w &quot;Телеграм: %{http_code}\n&quot; --max-time 
 </ul>
 <h3>Как обновлять помощника</h3>
 <p>Платформа развивается быстро, обновления выходят часто. Важное правило: <strong>не
-жмите кнопку «Обновить» в панели</strong>. Она запускает обновление прямо во время
-работы, и если оно споткнётся на переходе к новому формату данных, помощник уйдёт
-в бесконечный перезапуск, а вы останетесь без него и без панели, через которую
-чинить.</p>
-<p>Обновляйтесь руками, когда у вас есть свободные полчаса:</p>
-<p><strong>1. Сделайте копию.</strong> Это тридцать секунд, а спасает всё:</p>
-<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;tar -czf &quot;$HOME/jarvis-backup-$(date +%F).tar.gz&quot; \
-  --exclude=node_modules -C &quot;$HOME&quot; .openclaw &amp;&amp; ls -lh &quot;$HOME&quot;/jarvis-backup-*.tar.gz&#39;
+жмите кнопку «Обновить» в панели</strong> и не просите помощника обновиться из переписки.
+Обновление перезапускает его посреди работы, и если что-то споткнётся, вы останетесь
+без помощника и без панели, через которую чинить.</p>
+<p>Обновляйтесь из терминала, когда есть свободные полчаса. Для этого есть одна команда:</p>
+<pre><code class="language-bash">sudo -iu jarvis ~/jarvis-start/bin/update.sh
 </code></pre>
-<p>Последняя строка покажет получившийся файл. Если размер нулевой или файла нет —
-дальше не идите, разберитесь с копией.</p>
-<p><strong>2. Обновите штатной командой:</strong></p>
-<pre><code class="language-bash">sudo -iu jarvis openclaw update
+<p>Что она делает сама, по шагам:</p>
+<ol>
+<li>проверяет, вышла ли новая версия платформы OpenClaw и Джарви Старт, и показывает, что нового;</li>
+<li>делает копию помощника: настройки, память, расписания (хранятся три последние копии
+в папке <code>~/jarvis-backups</code>);</li>
+<li>обновляет OpenClaw штатным способом и Claude Code;</li>
+<li>обновляет скрипты Джарви Старт и дописывает помощнику новые правила. Его память,
+личность, ваши заметки и пароли не трогает;</li>
+<li>проверяет, что помощник поднялся, отвечает и видит Телеграм;</li>
+<li>если что-то пошло не так, <strong>сам возвращает всё из копии</strong>, включая прежнюю версию
+платформы, и пишет, что произошло.</li>
+</ol>
+<p>В конце вы увидите, что было и что стало. Если обновлять нечего, команда так и скажет.</p>
+<p>Посмотреть, есть ли обновление, ничего не меняя:</p>
+<pre><code class="language-bash">sudo -iu jarvis ~/jarvis-start/bin/update.sh --check
 </code></pre>
-<p>Она сама скачивает новую версию, проверяет её на пробном запуске, пока старая
-ещё работает, и только потом переключает и перезапускает помощника. Ставить
-новую версию руками через npm больше не нужно: раньше это был обходной путь,
-теперь штатная команда делает всё то же самое аккуратнее.</p>
-<p><strong>3. Проверьте, что он поднялся:</strong></p>
-<pre><code class="language-bash">sudo -iu jarvis openclaw status
+<p><strong>Если вы ставили помощника до 17 сентября 2026 года</strong>, этой команды у вас ещё нет.
+Один раз скачайте её так, дальше она будет обновляться сама:</p>
+<pre><code class="language-bash">sudo -iu jarvis bash -c &#39;curl -fsSL https://raw.githubusercontent.com/kotov67/jarvis-start/main/bin/update.sh -o ~/jarvis-start/bin/update.sh &amp;&amp; chmod +x ~/jarvis-start/bin/update.sh &amp;&amp; ~/jarvis-start/bin/update.sh&#39;
 </code></pre>
-<p>В строке <code>Gateway</code> должно быть <code>running</code>, в разделе каналов Телеграм — <code>OK</code>.
-Проверьте заодно, что расписания на месте: <code>sudo -iu jarvis openclaw cron list</code>.</p>
-<p><strong>Если после обновления помощник не поднялся</strong>, верните копию из первого шага и
-перезапустите:</p>
-<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;tar -xzf &quot;$HOME&quot;/jarvis-backup-ДАТА.tar.gz -C &quot;$HOME&quot;&#39;
-sudo -iu jarvis openclaw gateway restart
+<p><strong>Если обновление всё-таки оставило помощника в плохом состоянии</strong> (например, сервер
+перезагрузился прямо посреди него), верните последнюю копию руками:</p>
+<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;ls -t ~/jarvis-backups&#39;
+sudo -iu jarvis systemctl --user stop openclaw-gateway.service
+sudo -iu jarvis bash -lc &#39;mv ~/.openclaw ~/.openclaw.broken &amp;&amp; tar -xzf ~/jarvis-backups/ИМЯ_КОПИИ -C ~&#39;
+sudo -iu jarvis systemctl --user start openclaw-gateway.service
 </code></pre>
-<p>Вместо <code>ДАТА</code> подставьте дату из имени файла, его видно командой
-<code>sudo -iu jarvis ls</code>.</p>
-<p><strong>Ещё одна мелочь после каждого обновления.</strong> Если панель начнёт жаловаться, что
-отказывается запускать код из папки, доступной на запись, поправьте права:</p>
-<pre><code class="language-bash">sudo -iu jarvis bash -lc &#39;chmod -R go-w $(npm root -g)/openclaw&#39;
-</code></pre>
-<p>Так бывает из-за настроек прав по умолчанию на некоторых серверах.</p>
+<p>Вместо <code>ИМЯ_КОПИИ</code> подставьте верхнее имя из первой команды. Учтите: копия от более
+старой версии платформы работает только с этой старой версией. Если откат ручной, а
+помощник после него не запускается, покажите специалисту файл <code>~/jarvis-start/update.log</code>.</p>
 <hr>
 <h2>13. Настройка под ключ</h2>
 <p>Если разбираться самому не хочется или нужен помощник, заточенный под ваши задачи,

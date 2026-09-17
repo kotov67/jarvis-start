@@ -221,7 +221,7 @@ ok "Открыты только вход на сервер и сайт пане�
 # ------------------------------------------------------ файлы второй фазы ---
 step "Кладу файлы второй фазы"
 install -d -o "$JARVIS_USER" -g "$JARVIS_USER" "${JARVIS_HOME}/jarvis-start"
-for f in bin/setup.sh bin/doctor.sh templates/SOUL.md templates/AGENTS.md templates/USER.md templates/IDENTITY.md templates/MEMORY.md templates/TOOLS.md; do
+for f in VERSION CHANGELOG.md bin/setup.sh bin/doctor.sh bin/update.sh bin/managed.sh managed/AGENTS.md templates/SOUL.md templates/AGENTS.md templates/USER.md templates/IDENTITY.md templates/MEMORY.md templates/TOOLS.md; do
   install -d -o "$JARVIS_USER" -g "$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/$(dirname "$f")"
   if [ -f "$(dirname "$0")/$f" ]; then
     cp "$(dirname "$0")/$f" "${JARVIS_HOME}/jarvis-start/$f"
@@ -231,6 +231,10 @@ for f in bin/setup.sh bin/doctor.sh templates/SOUL.md templates/AGENTS.md templa
   chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/$f"
 done
 chmod +x "${JARVIS_HOME}/jarvis-start/bin/"*.sh
+# Версия Джарви Старт на этом сервере: от неё update.sh решает, что обновлять.
+tr -d ' \n\r' < "${JARVIS_HOME}/jarvis-start/VERSION" > "${JARVIS_HOME}/jarvis-start/.version"
+printf '\n' >> "${JARVIS_HOME}/jarvis-start/.version"
+chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/.version"
 printf '%s\n' "$DOMAIN" > "${JARVIS_HOME}/jarvis-start/.domain"
 chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/.domain"
 ok "Файлы на месте"

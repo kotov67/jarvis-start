@@ -88,7 +88,7 @@ PANEL_PASS="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20
 
 openclaw onboard --non-interactive --accept-risk \
   --mode local \
-  --auth-choice claude-cli \
+  --auth-choice anthropic-cli \
   --gateway-bind loopback \
   --gateway-auth password \
   --gateway-password "$PANEL_PASS" \
@@ -124,6 +124,12 @@ for f in SOUL.md AGENTS.md USER.md IDENTITY.md MEMORY.md TOOLS.md; do
       -e "s/{{DOMAIN}}/${DOMAIN:-адрес панели}/g" \
       "${HERE}/templates/${f}" > "${WORKSPACE}/${f}"
 done
+# Правила, которые потом обновляет update.sh, живут в отдельном блоке с метками.
+if [ -f "${HERE}/bin/managed.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${HERE}/bin/managed.sh"
+  jarvis_apply_managed "${HERE}/managed" "${WORKSPACE}" || warn "Не удалось дописать правила обновления в AGENTS.md"
+fi
 cat > "${WORKSPACE}/memory/${TODAY}.md" <<MEM
 # ${TODAY}
 

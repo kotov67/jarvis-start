@@ -53,15 +53,17 @@ else
 fi
 
 # 5. телеграм
-TOKEN="$(openclaw config get channels.telegram.botToken 2>/dev/null | tr -d '"' || true)"
-if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ]; then
-  if curl -fsS --max-time 15 "https://api.telegram.org/bot${TOKEN}/getMe" >/dev/null 2>&1; then
-    good "Телеграм-бот на связи"
-  else
-    bad "Телеграм не отвечает" "Проверьте интернет на сервере: curl https://api.telegram.org. Если сервер в России, Телеграм может быть недоступен без прокси."
-  fi
-else
+# Токен из настроек не читаем: новые версии OpenClaw отдают вместо него заглушку.
+# Штатная проверка канала сама стучится в Телеграм с настоящим токеном.
+TG_JSON="$(openclaw channels status --probe --json 2>/dev/null || true)"
+if [ "$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.configured // false' 2>/dev/null)" != "true" ]; then
   bad "Телеграм-бот не настроен" "Запустите /home/jarvis/jarvis-start/bin/setup.sh ещё раз"
+elif [ "$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.ok // false' 2>/dev/null)" = "true" ]; then
+  BOT="$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.botInfo.username // empty' 2>/dev/null)"
+  good "Телеграм-бот на связи${BOT:+ (@${BOT})}"
+else
+  ERR="$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.error // .channels.telegram.lastError // empty' 2>/dev/null)"
+  bad "Телеграм не отвечает${ERR:+: ${ERR}}" "Проверьте интернет на сервере: curl https://api.telegram.org. Если сервер в России, Телеграм может быть недоступен без прокси. Если токен бота менялся в BotFather, запустите setup.sh ещё раз."
 fi
 
 # 6. панель
@@ -93,3 +95,6 @@ else
   printf '%s  Нашлось проблем: %s. Что делать, написано рядом с каждой.%s\n' "$C_WARN" "$PROBLEMS" "$C_OFF"
   printf '  Если не помогло, полный отчёт: openclaw doctor\n\n'
 fi
+
+VER="$(cat "${HERE}/.version" 2>/dev/null || echo 1.0.0)"
+printf '  Версия Джарви Старт: %s. Проверить обновления: ~/jarvis-start/bin/update.sh --check\n\n' "$VER"
