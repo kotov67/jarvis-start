@@ -138,3 +138,10 @@ sudo -iu jarvis ~/jarvis-start/bin/update.sh
 обновляет OpenClaw и Claude Code, дописывает блок правил в `AGENTS.md` между метками
 `jarvis-start:managed`, выполняет миграции из `migrations/` и откатывается при сбое.
 Журнал: `~/jarvis-start/update.log`.
+
+Из переписки обновление запускается только `update.sh --from-chat`: скрипт уходит в отдельную
+службу `systemd-run --user`, переживает перезапуск шлюза и шлёт итог владельцу в Телеграм
+(`commands.ownerAllowFrom`). Помощник, поставленный вручную (другой пользователь, nvm),
+подключается к обновлениям ключом `--adopt`. `openclaw update` внутри службы systemd уходит в
+фоновую передачу (restart handoff) и выходит сразу: конец ищется в журнале передачи по строке
+`managed update helper completed code=N`, скрипт это уже умеет.

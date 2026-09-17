@@ -5,6 +5,15 @@
 
 set -uo pipefail
 export PATH="${HOME}/.npm-global/bin:${PATH}"
+if OC_REAL="$(readlink -f "$(command -v openclaw 2>/dev/null)" 2>/dev/null)" && [ -n "$OC_REAL" ]; then
+  case "$OC_REAL" in
+    */lib/node_modules/openclaw/*) export PATH="${OC_REAL%%/lib/node_modules/openclaw/*}/bin:${PATH}" ;;
+  esac
+fi
+# Разбор JSON через node: jq есть не на всех серверах.
+json_get() {
+  node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{let d;try{d=JSON.parse(s)}catch(e){process.exit(2)}let v;try{v=('"$1"')}catch(e){process.exit(1)}if(v===undefined||v===null||v===false||v==="")process.exit(1);if(v!==true)console.log(typeof v==="object"?JSON.stringify(v):String(v))})'
+}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOMAIN="$(cat "${HERE}/.domain" 2>/dev/null || true)"
 
@@ -32,7 +41,7 @@ else
 fi
 
 # 2. подписка Claude
-if [ "$(claude auth status --json 2>/dev/null | jq -r '.loggedIn // false' 2>/dev/null)" = "true" ]; then
+if claude auth status --json 2>/dev/null | json_get 'd.loggedIn === true' >/dev/null 2>&1; then
   good "Подписка Claude подключена"
 else
   bad "Вход в Claude слетел" "Выполните: claude auth login, потом openclaw gateway restart"
@@ -56,18 +65,20 @@ fi
 # Токен из настроек не читаем: новые версии OpenClaw отдают вместо него заглушку.
 # Штатная проверка канала сама стучится в Телеграм с настоящим токеном.
 TG_JSON="$(openclaw channels status --probe --json 2>/dev/null || true)"
-if [ "$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.configured // false' 2>/dev/null)" != "true" ]; then
+if ! printf '%s' "$TG_JSON" | json_get 'd.channels.telegram.configured === true' >/dev/null 2>&1; then
   bad "Телеграм-бот не настроен" "Запустите /home/jarvis/jarvis-start/bin/setup.sh ещё раз"
-elif [ "$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.ok // false' 2>/dev/null)" = "true" ]; then
-  BOT="$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.botInfo.username // empty' 2>/dev/null)"
+elif printf '%s' "$TG_JSON" | json_get 'd.channels.telegram.probe.ok === true' >/dev/null 2>&1; then
+  BOT="$(printf '%s' "$TG_JSON" | json_get 'd.channels.telegram.probe.botInfo.username' 2>/dev/null)"
   good "Телеграм-бот на связи${BOT:+ (@${BOT})}"
 else
-  ERR="$(printf '%s' "$TG_JSON" | jq -r '.channels.telegram.probe.error // .channels.telegram.lastError // empty' 2>/dev/null)"
+  ERR="$(printf '%s' "$TG_JSON" | json_get 'd.channels.telegram.probe.error || d.channels.telegram.lastError' 2>/dev/null)"
   bad "Телеграм не отвечает${ERR:+: ${ERR}}" "Проверьте интернет на сервере: curl https://api.telegram.org. Если сервер в России, Телеграм может быть недоступен без прокси. Если токен бота менялся в BotFather, запустите setup.sh ещё раз."
 fi
 
-# 6. панель
-if systemctl is-active caddy >/dev/null 2>&1; then
+# 6. панель (по методичке её отдаёт Caddy; если помощник ставился иначе, этот пункт пропускаем)
+if ! command -v caddy >/dev/null 2>&1; then
+  :
+elif systemctl is-active caddy >/dev/null 2>&1; then
   good "Веб-сервер панели работает"
   if [ -n "$DOMAIN" ]; then
     CODE="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 15 "https://${DOMAIN}/" 2>/dev/null || echo 000)"
@@ -82,7 +93,9 @@ else
 fi
 
 # 7. пароль панели
-if [ -f "${HOME}/.jarvis-panel-password" ]; then
+if ! command -v caddy >/dev/null 2>&1; then
+  :
+elif [ -f "${HOME}/.jarvis-panel-password" ]; then
   good "Пароль панели лежит в ~/.jarvis-panel-password"
 else
   printf '%s  ·%s Пароль панели не найден. Задать новый: openclaw config set gateway.auth.password "новый-пароль"\n' "$C_WARN" "$C_OFF"
