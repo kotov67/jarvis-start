@@ -32,20 +32,30 @@ job_id() {
   openclaw cron list --json 2>/dev/null | json_get "(d.jobs || []).filter(j => j.name === '${NAME}').map(j => j.id)[0]"
 }
 
+# Владелец из хранилища подтверждённых собеседников (pairing): в новых версиях OpenClaw это таблица
+# channel_pairing_allow_entries в ~/.openclaw/state/openclaw.sqlite, в старых - файлы в credentials.
+pairing_owner() {
+  local id=""
+  if [ -f "$HOME/.openclaw/state/openclaw.sqlite" ]; then
+    id="$(node -e 'try{const {DatabaseSync}=require("node:sqlite");const db=new DatabaseSync(process.argv[1],{readOnly:true});const r=db.prepare("select entry from channel_pairing_allow_entries where channel_key=? order by sort_order, updated_at limit 1").get("telegram");if(r)console.log(String(r.entry).replace(/^telegram:/,""))}catch(e){}' "$HOME/.openclaw/state/openclaw.sqlite" 2>/dev/null)"
+  fi
+  if [ -z "$id" ]; then
+    for f in "$HOME"/.openclaw/credentials/telegram*allow*.json; do
+      [ -f "$f" ] || continue
+      id="$(json_get 'd.map(String).map(x => x.replace(/^telegram:/, "")).find(x => /^[0-9]+$/.test(x))' < "$f" 2>/dev/null)"
+      [ -n "$id" ] && break
+    done
+  fi
+  printf '%s' "$id"
+}
+
 owner_id() {
   local id
   id="$(openclaw config get commands.ownerAllowFrom 2>/dev/null \
     | json_get 'd.map(String).find(x => x.startsWith("telegram:"))' 2>/dev/null | sed 's/^telegram://')"
   [ -n "$id" ] || id="$(openclaw config get channels.telegram.allowFrom 2>/dev/null \
     | json_get 'd.map(String).map(x => x.replace(/^telegram:/, "")).find(x => /^[0-9]+$/.test(x))' 2>/dev/null)"
-  if [ -z "$id" ]; then
-    # Кого одобрили через pairing, OpenClaw хранит в credentials.
-    for f in "$HOME"/.openclaw/credentials/telegram*allowFrom*.json; do
-      [ -f "$f" ] || continue
-      id="$(json_get 'd.map(String).map(x => x.replace(/^telegram:/, "")).find(x => /^[0-9]+$/.test(x))' < "$f" 2>/dev/null)"
-      [ -n "$id" ] && break
-    done
-  fi
+  [ -n "$id" ] || id="$(pairing_owner)"
   printf '%s' "$id"
 }
 

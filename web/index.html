@@ -970,8 +970,19 @@ Claude и подписку не расходует. Об одном и том ж
 <p>Посмотреть, есть ли обновление, ничего не меняя:</p>
 <pre><code class="language-bash">sudo -iu jarvis ~/jarvis-start/bin/update.sh --check
 </code></pre>
-<p><strong>Если вы ставили помощника до 17 сентября 2026 года</strong>, этой команды у вас ещё нет.
-Один раз скачайте её так, дальше она будет обновляться сама:</p>
+<p><strong>Если вы ставили помощника до 17 сентября 2026 года</strong>, ни фразы «обнови себя», ни ежедневной
+проверки у него ещё нет. Подключить их проще всего одним сообщением самому помощнику в Телеграм,
+скопируйте его целиком:</p>
+<blockquote>
+<p>Подключись к обновлениям Джарви Старт. Выполни в терминале сервера команду:
+<code>curl -fsSL https://raw.githubusercontent.com/kotov67/jarvis-start/main/bin/update.sh -o /tmp/jarvis-update.sh &amp;&amp; bash /tmp/jarvis-update.sh --adopt --from-chat</code>
+Скрипт сам уйдёт в отдельную службу, сделает копию и обновится. После запуска ничего не делай
+и не перезапускайся, итог придёт отдельным сообщением.</p>
+</blockquote>
+<p>Помощник замолчит на 5-15 минут, потом пришлёт итог. С этого момента работают все фразы из
+шпаргалки, а обновления он будет предлагать сам.</p>
+<p>Если помощник не отвечает, то же самое можно сделать из терминала. Один раз скачайте команду
+так, дальше она будет обновляться сама:</p>
 <pre><code class="language-bash">sudo -iu jarvis bash -c &#39;curl -fsSL https://raw.githubusercontent.com/kotov67/jarvis-start/main/bin/update.sh -o ~/jarvis-start/bin/update.sh &amp;&amp; chmod +x ~/jarvis-start/bin/update.sh &amp;&amp; ~/jarvis-start/bin/update.sh&#39;
 </code></pre>
 <p>Если помощник ставился не по этой методичке (например, специалист собирал его вручную),

@@ -59,6 +59,23 @@ json_get() {
   node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{let d;try{d=JSON.parse(s)}catch(e){process.exit(2)}let v;try{v=('"$1"')}catch(e){process.exit(1)}if(v===undefined||v===null||v===false||v==="")process.exit(1);if(v!==true)console.log(typeof v==="object"?JSON.stringify(v):String(v))})'
 }
 
+# Владелец из хранилища подтверждённых собеседников (pairing): в новых версиях OpenClaw это таблица
+# channel_pairing_allow_entries в ~/.openclaw/state/openclaw.sqlite, в старых - файлы в credentials.
+pairing_owner() {
+  local id=""
+  if [ -f "$HOME/.openclaw/state/openclaw.sqlite" ]; then
+    id="$(node -e 'try{const {DatabaseSync}=require("node:sqlite");const db=new DatabaseSync(process.argv[1],{readOnly:true});const r=db.prepare("select entry from channel_pairing_allow_entries where channel_key=? order by sort_order, updated_at limit 1").get("telegram");if(r)console.log(String(r.entry).replace(/^telegram:/,""))}catch(e){}' "$HOME/.openclaw/state/openclaw.sqlite" 2>/dev/null)"
+  fi
+  if [ -z "$id" ]; then
+    for f in "$HOME"/.openclaw/credentials/telegram*allow*.json; do
+      [ -f "$f" ] || continue
+      id="$(json_get 'd.map(String).map(x => x.replace(/^telegram:/, "")).find(x => /^[0-9]+$/.test(x))' < "$f" 2>/dev/null)"
+      [ -n "$id" ] && break
+    done
+  fi
+  printf '%s' "$id"
+}
+
 # Итог обновления человеку в Телеграм. Работает только в режиме --from-chat / --notify-target.
 NOTIFY=0; NOTIFY_TARGET=""; NOTIFIED=0
 notify() {
@@ -72,7 +89,9 @@ notify() {
     target="$(openclaw config get channels.telegram.allowFrom 2>/dev/null \
       | json_get 'd.map(String).find(x => /^[0-9-]+$/.test(x.replace(/^telegram:/, "")))' 2>/dev/null | sed 's/^telegram://')"
   fi
+  [ -n "$target" ] || target="$(pairing_owner)"
   [ -n "$target" ] || { log "notify: получатель не найден"; return 0; }
+  log "notify: отправляю ${target}"
   for _ in 1 2 3 4 5 6; do
     if openclaw message send --channel telegram --target "$target" --message "$1" >>"$LOG" 2>&1; then
       NOTIFIED=1; log "notify: отправлено ${target}"; return 0
@@ -261,6 +280,11 @@ if [ "$FROM_CHAT" -eq 1 ] && [ -z "${JARVIS_UPDATE_DETACHED:-}" ]; then
   [ -n "${JARVIS_UPDATE_SOURCE:-}" ] && SETENV+=(--setenv=JARVIS_UPDATE_SOURCE="$JARVIS_UPDATE_SOURCE")
   [ -n "${JARVIS_UPDATE_SIMULATE_FAIL:-}" ] && SETENV+=(--setenv=JARVIS_UPDATE_SIMULATE_FAIL="$JARVIS_UPDATE_SIMULATE_FAIL")
   [ -n "$NOTIFY_TARGET" ] && CHILD_ARGS+=(--notify-target "$NOTIFY_TARGET")
+  # Старая установка, где скрипта обновления ещё нет: кладём себя на место, службу запускаем оттуда.
+  if [ ! -f "$HOME_DIR/bin/update.sh" ]; then
+    mkdir -p "$HOME_DIR/bin" && cp "$0" "$HOME_DIR/bin/update.sh" && chmod +x "$HOME_DIR/bin/update.sh" \
+      || die "Не удалось положить скрипт обновления в ${HOME_DIR}/bin"
+  fi
   exec 9>&-
   systemd-run --user --unit "$UNIT_NAME" --collect --quiet "${SETENV[@]}" \
     /bin/bash "$HOME_DIR/bin/update.sh" "${CHILD_ARGS[@]}" \

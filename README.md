@@ -88,8 +88,13 @@ sudo -iu jarvis /home/jarvis/jarvis-start/bin/setup.sh
 sudo -iu jarvis ~/jarvis-start/bin/update.sh
 ```
 
-Ставили помощника до 17.09.2026 и этой команды нет? Подробности в разделе «Как обновлять
-помощника» методички. Что меняется в каждой версии: [CHANGELOG.md](CHANGELOG.md).
+Ставили помощника до 17.09.2026 и этой команды нет? Напишите помощнику:
+
+> Подключись к обновлениям Джарви Старт. Выполни в терминале сервера команду:
+> `curl -fsSL https://raw.githubusercontent.com/kotov67/jarvis-start/main/bin/update.sh -o /tmp/jarvis-update.sh && bash /tmp/jarvis-update.sh --adopt --from-chat`
+> После запуска ничего не делай и не перезапускайся, итог придёт отдельным сообщением.
+
+Подробности в разделе «Как обновлять помощника» методички. Что меняется в каждой версии: [CHANGELOG.md](CHANGELOG.md).
 
 ## Что можно сказать помощнику
 
