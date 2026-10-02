@@ -34,7 +34,7 @@ step "Проверяю сервер"
 
 . /etc/os-release 2>/dev/null || die "Не удалось определить систему. Нужна Ubuntu 22.04 или 24.04."
 case "${ID}:${VERSION_ID}" in
-  ubuntu:22.04|ubuntu:24.04|ubuntu:25.04|debian:12|debian:13) ok "Система: ${PRETTY_NAME}" ;;
+  ubuntu:22.04|ubuntu:24.04|ubuntu:25.04|ubuntu:26.04|debian:12|debian:13) ok "Система: ${PRETTY_NAME}" ;;
   *) warn "Система ${PRETTY_NAME} не проверялась. Рекомендуется Ubuntu 24.04. Продолжаю." ;;
 esac
 
