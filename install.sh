@@ -44,7 +44,7 @@ ARCH="$(uname -m)"
 MEM_MB=$(( $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024 ))
 if   [ "$MEM_MB" -lt 900 ];  then die "На сервере ${MEM_MB} МБ памяти. Нужно минимум 2 ГБ, комфортно 4 ГБ.
   Сменить тариф или взять подходящий сервер: https://ishosting.io/affiliate/NzU4MiM4"
-elif [ "$MEM_MB" -lt 1900 ]; then warn "Памяти ${MEM_MB} МБ. Помощник запустится, но будет тормозить. Лучше тариф на 2-4 ГБ: https://ishosting.io/affiliate/NzU4MiM4"
+elif [ "$MEM_MB" -lt 1900 ]; then warn "Памяти ${MEM_MB} МБ. Помощник запустится, но будет тормозить. Лучше тариф на 4 ГБ у вашего провайдера."
 else ok "Оперативная память: ${MEM_MB} МБ"
 fi
 
