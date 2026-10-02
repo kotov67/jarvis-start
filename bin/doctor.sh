@@ -40,8 +40,18 @@ else
   good "Место на диске есть (${DISK_FREE} ГБ)"
 fi
 
-# 2. подписка Claude
-if claude auth status --json 2>/dev/null | json_get 'd.loggedIn === true' >/dev/null 2>&1; then
+# 2. подписка (Claude или Kimi, смотря что выбрано при установке)
+BRAIN="$(tr -d ' \n\r' < "${HERE}/.brain" 2>/dev/null || true)"
+if [ "$BRAIN" = "kimi" ]; then
+  KIMI_CODE="$(curl -s -o /dev/null --max-time 12 -w '%{http_code}' https://api.kimi.com/coding/v1/models 2>/dev/null || true)"
+  if ! printf '%s' "$KIMI_CODE" | grep -qE '^(200|401)$'; then
+    bad "Сервер Kimi не открывается с этого сервера (код ${KIMI_CODE:-нет ответа})" "Проверьте интернет на сервере; если не пройдёт само, напишите специалисту"
+  elif openclaw models status --json 2>/dev/null | json_get 'JSON.stringify(d).includes("kimi:")' >/dev/null 2>&1; then
+    good "Подписка Kimi подключена"
+  else
+    bad "Ключ Kimi не найден" "Создайте ключ в kimi.com/code/console и выполните: openclaw models auth paste-token --provider kimi --profile-id kimi:default (вставить ключ и нажать Ctrl+D)"
+  fi
+elif claude auth status --json 2>/dev/null | json_get 'd.loggedIn === true' >/dev/null 2>&1; then
   good "Подписка Claude подключена"
 else
   bad "Вход в Claude слетел" "Выполните: claude auth login, потом openclaw gateway restart"

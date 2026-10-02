@@ -3,26 +3,61 @@
 # Запускать от имени пользователя jarvis:
 #   sudo -iu jarvis /home/jarvis/jarvis-start/bin/setup.sh
 #
-# Перед запуском должен быть выполнен вход в подписку:
+# Для мозга Claude перед запуском должен быть выполнен вход в подписку:
 #   sudo -iu jarvis claude auth login
+# Для мозга Kimi скрипт сам спросит ключ Kimi Code.
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="${HOME}/.openclaw/workspace"
 DOMAIN="$(cat "${HERE}/.domain" 2>/dev/null || true)"
+BRAIN="$(tr -d ' \n\r' < "${HERE}/.brain" 2>/dev/null || true)"
+[ "$BRAIN" = "kimi" ] || BRAIN="claude"
+# Модель Kimi: K3 с окном 256 тыс. токенов. Отвечает так же, как K3 на миллион,
+# но тратит лимит подписки вдвое медленнее и доступна с тарифа Plus.
+KIMI_MODEL="kimi/k3-256k"
 
 C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'; C_HEAD=$'\033[1;36m'; C_OFF=$'\033[0m'
 step() { printf '\n%s>>> %s%s\n' "$C_HEAD" "$1" "$C_OFF"; }
 ok()   { printf '%s  [готово]%s %s\n' "$C_OK" "$C_OFF" "$1"; }
 warn() { printf '%s  [внимание]%s %s\n' "$C_WARN" "$C_OFF" "$1"; }
 die()  { printf '\n%s  [ошибка]%s %s\n\n' "$C_ERR" "$C_OFF" "$1" >&2; exit 1; }
-ask()  { local p="$1" d="${2:-}" a; if [ -n "$d" ]; then read -r -p "$p [$d]: " a; echo "${a:-$d}"; else read -r -p "$p: " a; echo "$a"; fi; }
+# Оборвался ввод (закрыли окно, отвалился ssh): останавливаемся, а не крутим вопрос по кругу.
+ask()  { local p="$1" d="${2:-}" a; if [ -n "$d" ]; then read -r -p "$p [$d]: " a || die "Ввод прервался. Запустите скрипт заново."; echo "${a:-$d}"; else read -r -p "$p: " a || die "Ввод прервался. Запустите скрипт заново."; echo "$a"; fi; }
 
 export PATH="${HOME}/.npm-global/bin:${PATH}"
 
 [ "$(id -un)" != "root" ] || die "Этот скрипт запускают от имени jarvis, а не от root. Выполните: sudo -iu jarvis /home/jarvis/jarvis-start/bin/setup.sh"
 
+if [ "$BRAIN" = "kimi" ]; then
+# ------------------------------------------------------------ ключ Kimi ---
+step "Подключаю подписку Kimi"
+cat <<'KIMI'
+  Нужен ключ Kimi Code. Если его ещё нет:
+
+    1. Оформите подписку Kimi на kimi.com, тариф Plus или выше
+       (на тарифе Go помощник работать не будет).
+    2. Откройте консоль Kimi Code: kimi.com/code/console
+    3. Создайте API-ключ и скопируйте его. Он показывается один раз.
+
+KIMI
+KIMI_KEY=""
+while [ -z "$KIMI_KEY" ]; do
+  read -r -s -p "  Вставьте ключ (символы не отображаются, так задумано): " KIMI_KEY || die "Ввод прервался. Запустите скрипт заново."
+  echo
+  KIMI_KEY="$(printf '%s' "$KIMI_KEY" | tr -d '[:space:]')"
+  [ -n "$KIMI_KEY" ] || continue
+  # Ключ уходит в curl через stdin, а не аргументом: так его не видно в списке процессов.
+  CODE="$(printf 'header = "Authorization: Bearer %s"\n' "$KIMI_KEY" \
+    | curl -s -o /dev/null --max-time 20 -w '%{http_code}' -K - https://api.kimi.com/coding/v1/models 2>/dev/null || true)"
+  case "$CODE" in
+    200) ok "Ключ принят, подписка Kimi активна" ;;
+    401|403) warn "Kimi не принял ключ (код ${CODE}). Проверьте, что скопирован ключ целиком и подписка Plus или выше активна."; KIMI_KEY="" ;;
+    *) die "Не достучался до сервера Kimi (код ${CODE:-нет ответа}). Проверьте интернет на сервере и повторите." ;;
+  esac
+done
+else
 # --------------------------------------------------- проверка входа в Клод ---
 step "Проверяю вход в подписку Claude"
 AUTH_JSON="$(claude auth status --json 2>/dev/null || true)"
@@ -33,6 +68,7 @@ if [ "$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn // false' 2>/dev/null)" != "
 fi
 PLAN="$(printf '%s' "$AUTH_JSON" | jq -r '.subscriptionType // "подписка"' 2>/dev/null)"
 ok "Подписка Claude подключена (${PLAN})"
+fi
 
 # ------------------------------------------------------------- знакомство ---
 step "Знакомимся"
@@ -86,9 +122,10 @@ ok "Бот @${BOT_NAME} на связи"
 step "Собираю помощника (это займёт пару минут)"
 PANEL_PASS="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
 
+if [ "$BRAIN" = "kimi" ]; then AUTH_CHOICE="skip"; else AUTH_CHOICE="anthropic-cli"; fi
 openclaw onboard --non-interactive --accept-risk \
   --mode local \
-  --auth-choice anthropic-cli \
+  --auth-choice "$AUTH_CHOICE" \
   --gateway-bind loopback \
   --gateway-auth password \
   --gateway-password "$PANEL_PASS" \
@@ -99,10 +136,30 @@ openclaw onboard --non-interactive --accept-risk \
   --skip-hooks \
   --skip-ui \
   --skip-skills >/tmp/jarvis-onboard.log 2>&1 \
-  || die "Сборка не прошла. Покажите специалисту файл /tmp/jarvis-onboard.log"
+  || {
+    # Первый запуск помощника на небольшом сервере идёт до минуты, а сборка ждёт меньше
+    # и сообщает «не отвечает». Если служба поставлена, просто дожидаемся её.
+    for _ in $(seq 1 40); do openclaw health >/dev/null 2>&1 && break; sleep 3; done
+    openclaw health >/dev/null 2>&1 || die "Сборка не прошла. Покажите специалисту файл /tmp/jarvis-onboard.log"
+    warn "Помощник запускался дольше обычного, но запустился"
+  }
 ok "Основа собрана"
 
-openclaw models auth login --provider anthropic --method cli --set-default >/dev/null 2>&1 || true
+if [ "$BRAIN" = "kimi" ]; then
+  step "Подключаю мозг Kimi"
+  openclaw plugins install @openclaw/kimi-provider >>/tmp/jarvis-onboard.log 2>&1 \
+    || die "Не установился модуль Kimi. Покажите специалисту файл /tmp/jarvis-onboard.log"
+  # Ключ передаём через stdin: он не попадает ни в аргументы, ни в историю, ни в лог.
+  printf '%s' "$KIMI_KEY" | openclaw models auth paste-token --provider kimi --profile-id kimi:default >>/tmp/jarvis-onboard.log 2>&1 \
+    || die "Не удалось сохранить ключ Kimi. Покажите специалисту файл /tmp/jarvis-onboard.log"
+  unset KIMI_KEY
+  openclaw models set "$KIMI_MODEL" >>/tmp/jarvis-onboard.log 2>&1 \
+    || die "Не удалось выбрать модель Kimi. Покажите специалисту файл /tmp/jarvis-onboard.log"
+  openclaw config set agents.defaults.model.fallbacks '[]' --strict-json >/dev/null 2>&1 || true
+  ok "Мозг: Kimi K3 по вашей подписке"
+else
+  openclaw models auth login --provider anthropic --method cli --set-default >/dev/null 2>&1 || true
+fi
 
 # ------------------------------------------------------------- настройки ---
 step "Прописываю настройки"
@@ -115,6 +172,11 @@ ok "Телеграм подключён"
 step "Записываю личность и правила памяти"
 mkdir -p "${WORKSPACE}/memory" "${WORKSPACE}/knowledge"
 TODAY="$(date +%F)"
+if [ "$BRAIN" = "kimi" ]; then
+  BRAIN_LINE="Kimi K3 по подписке Kimi Code (модель ${KIMI_MODEL}), ключ хранится в OpenClaw."
+else
+  BRAIN_LINE="Claude Code по подписке, ключи API не используются."
+fi
 for f in SOUL.md AGENTS.md USER.md IDENTITY.md MEMORY.md TOOLS.md; do
   [ -f "${HERE}/templates/${f}" ] || continue
   sed -e "s/{{AGENT_NAME}}/${AGENT_NAME}/g" \
@@ -122,6 +184,7 @@ for f in SOUL.md AGENTS.md USER.md IDENTITY.md MEMORY.md TOOLS.md; do
       -e "s#{{TZ}}#${TZ_NAME}#g" \
       -e "s/{{TODAY}}/${TODAY}/g" \
       -e "s/{{DOMAIN}}/${DOMAIN:-адрес панели}/g" \
+      -e "s#{{BRAIN_LINE}}#${BRAIN_LINE}#g" \
       "${HERE}/templates/${f}" > "${WORKSPACE}/${f}"
 done
 # Правила, которые потом обновляет update.sh, живут в отдельном блоке с метками.

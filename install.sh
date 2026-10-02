@@ -6,11 +6,13 @@
 # Что делает этот скрипт (фаза 1, системная):
 #   1. проверяет систему и добавляет файл подкачки на маленьких серверах
 #   2. заводит отдельного пользователя jarvis, под которым будет жить помощник
-#   3. ставит Node.js, Claude Code, OpenClaw и веб-сервер Caddy
-#   4. поднимает HTTPS-адрес панели и настраивает файрвол
-#   5. печатает две команды для фазы 2
+#   3. выбирает мозг помощника: Claude (зарубежный сервер) или Kimi (подходит и для России)
+#   4. ставит Node.js, Claude Code (только для Claude), OpenClaw и веб-сервер Caddy
+#   5. поднимает HTTPS-адрес панели и настраивает файрвол
+#   6. печатает команды для фазы 2
 #
-# Фаза 2 (вход в Клода и настройка помощника) запускается отдельно, от имени jarvis.
+# Фаза 2 (подключение подписки и настройка помощника) запускается отдельно, от имени jarvis.
+# Мозг можно задать заранее: JARVIS_BRAIN=kimi bash <(curl ...), иначе скрипт спросит.
 
 set -euo pipefail
 
@@ -75,6 +77,42 @@ apt-get update -qq
 apt-get install -y -qq curl wget git ca-certificates gnupg sudo ufw jq unzip debian-keyring debian-archive-keyring apt-transport-https >/dev/null
 ok "Базовые инструменты на месте"
 
+# --------------------------------------------------------- мозг помощника ---
+step "Выбираю мозг помощника"
+# Claude из России недоступен: его сервер отвечает отказом по стране. Kimi доступен
+# отовсюду и работает по своей подписке, без Claude вообще.
+http_code() { curl -s -o /dev/null --max-time 12 -w '%{http_code}' "$1" 2>/dev/null || true; }
+ANTHROPIC_CODE="$(http_code https://api.anthropic.com/v1/models)"
+case "$ANTHROPIC_CODE" in 200|401) ANTHROPIC_OK=1 ;; *) ANTHROPIC_OK=0 ;; esac
+BRAIN="${JARVIS_BRAIN:-}"
+case "$BRAIN" in claude|kimi|"") ;; *) die "JARVIS_BRAIN может быть claude или kimi, а не ${BRAIN}." ;; esac
+if [ -z "$BRAIN" ]; then
+  DEF=1; [ "$ANTHROPIC_OK" -eq 1 ] || DEF=2
+  [ "$ANTHROPIC_OK" -eq 1 ] || warn "Сервер Claude отсюда недоступен (так бывает на российских серверах). Подойдёт вариант 2, Kimi."
+  echo "    1) Claude: подписка Claude (Pro или Max), сервер за рубежом"
+  echo "    2) Kimi: подписка Kimi (тариф Plus или выше), работает и на российском сервере"
+  a=""
+  if [ -t 0 ]; then read -r -p "  Ваш выбор [${DEF}]: " a || true; fi
+  case "${a:-$DEF}" in 2) BRAIN=kimi ;; *) BRAIN=claude ;; esac
+fi
+if [ "$BRAIN" = "claude" ] && [ "$ANTHROPIC_OK" -eq 0 ]; then
+  die "Выбран Claude, но его сервер отсюда недоступен (код ${ANTHROPIC_CODE:-нет ответа}).
+  Варианты: запустить установку заново и выбрать 2 (Kimi), либо взять сервер в Европе."
+fi
+if [ "$BRAIN" = "kimi" ]; then
+  KIMI_CODE="$(http_code https://api.kimi.com/coding/v1/models)"
+  case "$KIMI_CODE" in 200|401) ok "Сервер Kimi доступен" ;;
+    *) die "Сервер Kimi отсюда не открывается (код ${KIMI_CODE:-нет ответа}). Проверьте интернет на сервере." ;;
+  esac
+fi
+# Без Телеграма помощнику не через что говорить. Часть российских хостингов его закрывает.
+TG_CODE="$(http_code https://api.telegram.org/)"
+case "$TG_CODE" in 200|301|302|404) ok "Телеграм с сервера открывается" ;;
+  *) die "С этого сервера не открывается Телеграм (код ${TG_CODE:-нет ответа}), помощник не сможет отвечать.
+  Спросите хостинг, не закрыт ли api.telegram.org, или возьмите сервер у другого провайдера." ;;
+esac
+ok "Мозг помощника: $([ "$BRAIN" = kimi ] && echo 'Kimi K3' || echo 'Claude')"
+
 # ------------------------------------------------------------ пользователь ---
 step "Готовлю отдельного пользователя ${JARVIS_USER}"
 if id "$JARVIS_USER" >/dev/null 2>&1; then
@@ -136,11 +174,13 @@ mkdir -p /var/tmp/openclaw-compile-cache && chown "$JARVIS_USER:$JARVIS_USER" /v
 chown "$JARVIS_USER:$JARVIS_USER" "$PROFILE"
 
 # ---------------------------------------------------------- Claude Code ---
-step "Ставлю Claude Code (мозг помощника)"
-sudo -u "$JARVIS_USER" -H bash -lc "npm install -g @anthropic-ai/claude-code >/dev/null 2>&1"
-CLAUDE_VER="$(sudo -u "$JARVIS_USER" -H bash -lc 'claude --version 2>/dev/null' || true)"
-[ -n "$CLAUDE_VER" ] || die "Claude Code не установился. Проверьте интернет на сервере и запустите скрипт ещё раз."
-ok "Claude Code ${CLAUDE_VER}"
+if [ "$BRAIN" = "claude" ]; then
+  step "Ставлю Claude Code (мозг помощника)"
+  sudo -u "$JARVIS_USER" -H bash -lc "npm install -g @anthropic-ai/claude-code >/dev/null 2>&1"
+  CLAUDE_VER="$(sudo -u "$JARVIS_USER" -H bash -lc 'claude --version 2>/dev/null' || true)"
+  [ -n "$CLAUDE_VER" ] || die "Claude Code не установился. Проверьте интернет на сервере и запустите скрипт ещё раз."
+  ok "Claude Code ${CLAUDE_VER}"
+fi
 
 # -------------------------------------------------------------- OpenClaw ---
 step "Ставлю OpenClaw (тело помощника: память, Телеграм, панель)"
@@ -237,6 +277,8 @@ printf '\n' >> "${JARVIS_HOME}/jarvis-start/.version"
 chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/.version"
 printf '%s\n' "$DOMAIN" > "${JARVIS_HOME}/jarvis-start/.domain"
 chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/.domain"
+printf '%s\n' "$BRAIN" > "${JARVIS_HOME}/jarvis-start/.brain"
+chown "$JARVIS_USER:$JARVIS_USER" "${JARVIS_HOME}/jarvis-start/.brain"
 ok "Файлы на месте"
 
 # ----------------------------------------------------------------- финал ---
@@ -248,6 +290,24 @@ ${C_HEAD}================================================================${C_OFF
 
   Адрес будущей панели:  https://${DOMAIN}
   Пользователь помощника: ${JARVIS_USER}
+FINAL
+
+if [ "$BRAIN" = "kimi" ]; then
+cat <<FINAL
+
+${C_HEAD}Что делать дальше: одна команда.${C_OFF}
+
+  Заранее приготовьте ключ Kimi Code: kimi.com, подписка Plus или выше,
+  затем в консоли Kimi Code (kimi.com/code/console) кнопка создания API-ключа.
+
+      sudo -iu ${JARVIS_USER} ${JARVIS_HOME}/jarvis-start/bin/setup.sh
+
+    Скрипт спросит ключ Kimi, имя помощника и токен Телеграм-бота,
+    а в конце покажет пароль от панели.
+
+FINAL
+else
+cat <<FINAL
 
 ${C_HEAD}Что делать дальше: две команды, по очереди.${C_OFF}
 
@@ -267,3 +327,4 @@ ${C_HEAD}Что делать дальше: две команды, по очер�
     а в конце покажет пароль от панели.
 
 FINAL
+fi

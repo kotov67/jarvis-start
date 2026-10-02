@@ -7,7 +7,7 @@
 # Что делает:
 #   1. проверяет, что есть новая версия Джарви Старт и платформы OpenClaw
 #   2. делает копию помощника (настройки, память, расписания)
-#   3. обновляет OpenClaw штатной командой и Claude Code
+#   3. обновляет OpenClaw штатной командой и Claude Code (если мозг Claude)
 #   4. обновляет наши скрипты и дописывает новые правила в файлы помощника,
 #      не трогая его память, личность и пароли
 #   5. выполняет разовые миграции настроек нового выпуска
@@ -462,7 +462,9 @@ if [ "$PLATFORM_UPDATE" -eq 1 ]; then
 fi
 simulate_fail platform
 
-if [ "$SKIP_PLATFORM" -eq 0 ]; then
+# Claude Code обновляем только там, где он мозг: у помощников на Kimi его нет вовсе.
+BRAIN="$(tr -d ' \n\r' < "${HOME_DIR}/.brain" 2>/dev/null || true)"
+if [ "$SKIP_PLATFORM" -eq 0 ] && [ "$BRAIN" != "kimi" ] && command -v claude >/dev/null 2>&1; then
   CC_BEFORE="$(claude --version 2>/dev/null | awk '{print $1}')"
   if npm install -g @anthropic-ai/claude-code@latest >>"$LOG" 2>&1; then
     CC_AFTER="$(claude --version 2>/dev/null | awk '{print $1}')"
